@@ -1,0 +1,27 @@
+package {{.package}}
+
+import (
+	"github.com/jinzhu/gorm"
+	"github.com/carprice-tech/migorm"
+	"errors"
+)
+
+func init(){
+	migorm.RegisterMigration(&{{.struct_name}}{})
+}
+
+type {{.struct_name}} struct{}
+
+func (m *{{.struct_name}}) Up(db *gorm.DB, log migorm.Logger) error{
+
+	err := errors.New("implement me")
+
+	return err;
+}
+
+func (m *{{.struct_name}}) Down(db *gorm.DB, log migorm.Logger) error{
+
+	err := errors.New("implement me")
+
+	return err;
+}

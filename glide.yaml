@@ -1,0 +1,3 @@
+package: bitbucket.org/carprice/services
+import:
+- package: github.com/jinzhu/gorm
