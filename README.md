@@ -1,13 +1,13 @@
 # MIGORM
 
-MIGORM - Helper tool for [gorm](https://github.com/jinzhu/gorm) framework, allows you to make changes in your database,
- by creating migrations files.
+MIGORM is a helper tool for [gorm](https://github.com/jinzhu/gorm) framework allowing you to make changes in your database by creating migration files.
 
 ## Quick start:
+Install package
 ```bash
 glide get github.com/carprice-tech/migorm
 ```
-Then you need to create a file for run migrations commands (e.g. migrate.go)
+Then you must create a file for running migration commands (e.g. migrate.go)
 ```go
 package main
 
@@ -38,13 +38,13 @@ func main() {
 }
 ```
 
-For testing, try create a new migration.
+For testing try create a new migration.
 
 ```bash
 go run migrate.go make first_example
 ```
 
-After that, a package with default name: **migrations**,  will be created in the same directory. And the migration file (**<timestamp>_first_example.go**) will be created there.
+After that, a package with default name **migrations**  will be created in the same directory. And the migration file (**<timestamp>_first_example.go**) will be created there.
 
 ```
 .
@@ -66,7 +66,7 @@ import (
 )
 ```
 
-Now all you need is to insert your code into the up/down methods in new created file (<timestamp>_first_example.go)
+Now you just need to insert your code into the up/down methods in the new created file (<timestamp>_first_example.go)
 
 
 Run migrations for execution.
@@ -74,7 +74,7 @@ Run migrations for execution.
 ```bash
 go run migrate.go
 ```
-Successful migrations are inserted into the table by default: **migrations**. And in the future will be skipped
+Successful migrations are inserted into the table by default: **migrations**. And in the future ones will be skipped.
 
 ## Available commands:
 ```bash
