@@ -10,6 +10,8 @@ import (
 
 func main() {
 
+	var dbConn *gorm.DB
+
 	db_user := ""
 	db_pass := ""
 	db_host := ""
