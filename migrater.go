@@ -139,12 +139,7 @@ func (m *migrater) DownConcreteMigration(name string) error {
 
 func (m *migrater) MakeFileMigration(name string) error {
 
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	migrationsPath := currentDir + "/" + m.Configurator.MigrationsDir
+	migrationsPath := m.Configurator.MigrationsDir
 
 	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
 		m.Log.Infof("Create new directory : %v", migrationsPath)
@@ -153,7 +148,7 @@ func (m *migrater) MakeFileMigration(name string) error {
 		}
 	}
 
-	err = checkFileExists(migrationsPath, name+".go")
+	err := checkFileExists(migrationsPath, name+".go")
 	if err != nil {
 		return err
 	}

@@ -92,7 +92,9 @@ You can configure some parameters before performing migrations.
 migrater := migorm.NewMigrater(db)
 
 // don't forget import new package after create
-migrater.Conf().MigrationsDir = "../../my_migration_pkg" // relative current file
+_, file, _, _  := runtime.Caller(0)
+curDir := path.Dir(file)
+migrater.Conf().MigrationsDir = curDir + "/../migrations" // relative current file
 
 migrater.Conf().TableName = "my_migrations"
 
