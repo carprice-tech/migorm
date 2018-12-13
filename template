@@ -16,12 +16,12 @@ func (m *{{.struct_name}}) Up(db *gorm.DB, log migorm.Logger) error{
 
 	err := errors.New("implement me")
 
-	return err;
+	return err
 }
 
 func (m *{{.struct_name}}) Down(db *gorm.DB, log migorm.Logger) error{
 
 	err := errors.New("implement me")
 
-	return err;
+	return err
 }
