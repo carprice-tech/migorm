@@ -199,6 +199,7 @@ func (m *migrater) getNewMigrations() []migrationModel {
 
 	step := 20 // limit
 	result := make([]migrationModel, 0)
+	existMigrations := make(map[string]bool)
 	for i := 0; i < len(names); {
 
 		i += step
@@ -216,17 +217,17 @@ func (m *migrater) getNewMigrations() []migrationModel {
 
 			panic(err)
 		}
-		existMigrations := make(map[string]bool)
+		
 		for _, row := range rows {
 			existMigrations[row.Name] = true
 		}
+	}
 
-		for _, name := range names {
-			if _, ok := existMigrations[name]; !ok {
-				model := m.newMigrationModel()
-				model.Name = name
-				result = append(result, model)
-			}
+	for _, name := range names {
+		if _, ok := existMigrations[name]; !ok {
+			model := m.newMigrationModel()
+			model.Name = name
+			result = append(result, model)
 		}
 	}
 
