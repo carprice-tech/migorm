@@ -1,14 +1,15 @@
 package migorm
 
 import (
-	"github.com/jinzhu/gorm"
+	"path/filepath"
 	"runtime"
 	"strings"
-	"path/filepath"
 	"sync"
+
+	"github.com/jinzhu/gorm"
 )
 
-var pool migrationsPool
+var pool migrationsPool // nolint:gochecknoglobals
 
 type migrationsPool struct {
 	migrations map[string]Migration
@@ -20,24 +21,22 @@ func init() {
 }
 
 type Migration interface {
-	Up(db *gorm.DB, log Logger) error
-	Down(db *gorm.DB, log Logger) error
+	Up(db *gorm.DB, di MigraterDI) error
+	Down(db *gorm.DB, di MigraterDI) error
 }
 
 // Each migration file call this method in its init method
 func RegisterMigration(migration Migration) {
-
 	_, file, _, ok := runtime.Caller(1)
 	if !ok {
 		panic("Fail invoke caller")
-		return
 	}
-	migrationName := strings.Replace(filepath.Base(file), ".go", "", -1)
+	migrationName := strings.Replace(filepath.Base(file), ".go", "", -1) // nolint:gocritic
 
 	pool.Lock()
 	defer pool.Unlock()
 	_, ok = pool.migrations[migrationName]
-	if (ok) {
+	if ok {
 		panic("Migration with name : " + migrationName + " already exist")
 	}
 	pool.migrations[migrationName] = migration
