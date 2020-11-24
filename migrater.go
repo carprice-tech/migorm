@@ -1,50 +1,64 @@
 package migorm
 
 import (
-	"github.com/jinzhu/gorm"
-	"sort"
 	"errors"
-	"time"
-	"strings"
+	"fmt"
 	"io/ioutil"
 	"os"
-	"fmt"
-	"text/template"
-	"runtime"
 	"path"
+	"runtime"
+	"sort"
+	"strings"
+	"text/template"
+	"time"
+
+	"github.com/jinzhu/gorm"
 )
 
-func NewMigrater(db *gorm.DB) Migrater {
+func NewMigrater(db *gorm.DB, di MigraterDI) Migrater {
 	return &migrater{
 		db: db,
 		Configurator: &Configurator{
-			Log:           NewLogger(),
 			MigrationsDir: "migrations",
 			TableName:     "migrations",
 		},
+		di: di,
 	}
 }
 
 type Migrater interface {
-	Conf() *Configurator
+	GetLogger() Logger
 	UpMigrations() error
 	UpConcreteMigration(name string) error
 	DownConcreteMigration(name string) error
 	MakeFileMigration(name string) error
+	SetMigrationsDir(path string) Migrater
+	SetTableName(name string) Migrater
 }
 
 type migrater struct {
 	db *gorm.DB
+	di MigraterDI
 	*Configurator
 }
 
-func (m *migrater) Conf() *Configurator {
-	return m.Configurator
+func (m *migrater) GetLogger() Logger {
+	return m.di.GetLogger()
+}
+
+func (m *migrater) SetMigrationsDir(path string) Migrater {
+	m.MigrationsDir = path
+	return m
+}
+
+func (m *migrater) SetTableName(name string) Migrater {
+	m.TableName = name
+	return m
 }
 
 func (m *migrater) UpMigrations() error {
-
-	m.Log.Infof("Start migrations")
+	log := m.di.GetLogger()
+	log.Infof("Start migrations")
 
 	m.checkMigrationTable()
 
@@ -52,26 +66,26 @@ func (m *migrater) UpMigrations() error {
 
 	successCnt := 0
 	for _, migration := range newMigrations {
-		if migration.Id == 0 {
+		if migration.ID == 0 {
 			tx := m.db.Begin()
-			if err := pool.migrations[migration.Name].Up(tx, m.Log); err != nil {
+			if err := pool.migrations[migration.Name].Up(tx, m.di); err != nil {
 				tx.Rollback()
 				return fmt.Errorf("up migration: %+v, err: %+v", migration.Name, err)
 			}
-			if err := m.db.Create(&migration).Error; err != nil {
+			if err := m.db.Create(&migration).Error; err != nil { // nolint:gosec,scopelint
 				tx.Rollback()
 				return fmt.Errorf("save migration: %v, err: %+v", migration.Name, err)
 			}
 			tx.Commit()
-			m.Log.Infof("success: %+v", migration.Name)
+			log.Infof("success: %+v", migration.Name)
 			successCnt++
 		}
 	}
 
 	if successCnt > 0 {
-		m.Log.Infof("All migrations are done success!")
+		log.Infof("All migrations are done success!")
 	} else {
-		m.Log.Infof("Nothing to migrate.")
+		log.Infof("Nothing to migrate.")
 	}
 
 	return nil
@@ -84,7 +98,7 @@ func (m *migrater) UpConcreteMigration(name string) error {
 	}
 
 	tx := m.db.Begin()
-	if err := mig.Up(tx, m.Log); err != nil {
+	if err := mig.Up(tx, m.di); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -95,7 +109,7 @@ func (m *migrater) UpConcreteMigration(name string) error {
 		return err
 	}
 
-	if migrationModel.Id == 0 {
+	if migrationModel.ID == 0 {
 		migrationModel.Name = name
 		if err := m.db.Create(&migrationModel).Error; err != nil {
 			tx.Rollback()
@@ -108,14 +122,13 @@ func (m *migrater) UpConcreteMigration(name string) error {
 }
 
 func (m *migrater) DownConcreteMigration(name string) error {
-
 	mig, ok := pool.migrations[name]
 	if !ok {
 		return errors.New("Does not exist migration with name: " + name)
 	}
 
 	tx := m.db.Begin()
-	if err := mig.Down(tx, m.Log); err != nil {
+	if err := mig.Down(tx, m.di); err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -126,7 +139,7 @@ func (m *migrater) DownConcreteMigration(name string) error {
 		return err
 	}
 
-	if migrationModel.Id != 0 {
+	if migrationModel.ID != 0 {
 		if err := m.db.Delete(&migrationModel, "name = ?", name).Error; err != nil {
 			tx.Rollback()
 			return err
@@ -138,11 +151,11 @@ func (m *migrater) DownConcreteMigration(name string) error {
 }
 
 func (m *migrater) MakeFileMigration(name string) error {
-
+	log := m.di.GetLogger()
 	migrationsPath := m.Configurator.MigrationsDir
 
 	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
-		m.Log.Infof("Create new directory : %v", migrationsPath)
+		log.Infof("Create new directory : %v", migrationsPath)
 		if err := os.MkdirAll(migrationsPath, os.ModePerm); err != nil {
 			return err
 		}
@@ -182,16 +195,15 @@ func (m *migrater) MakeFileMigration(name string) error {
 		return err
 	}
 
-	m.Log.Infof("migration file created: %v", realName)
+	log.Infof("migration file created: %v", realName)
 
 	return nil
 }
 
 // Finds not yet completed migration files
 func (m *migrater) getNewMigrations() []migrationModel {
-
-	var names []string
-	for k, _ := range pool.migrations {
+	names := make([]string, 0, len(pool.migrations))
+	for k, _ := range pool.migrations { // nolint:gofmt,golint,gosimple
 		names = append(names, k)
 	}
 
@@ -201,7 +213,6 @@ func (m *migrater) getNewMigrations() []migrationModel {
 	result := make([]migrationModel, 0)
 	existMigrations := make(map[string]bool)
 	for i := 0; i < len(names); {
-
 		i += step
 		var chunkNames []string
 		if i <= len(names) {
@@ -214,10 +225,9 @@ func (m *migrater) getNewMigrations() []migrationModel {
 		if err := m.db.Model(m.newMigrationModel()).
 			Where("name IN (?)", chunkNames).
 			Scan(&rows).Error; err != nil {
-
 			panic(err)
 		}
-		
+
 		for _, row := range rows {
 			existMigrations[row.Name] = true
 		}
@@ -235,7 +245,7 @@ func (m *migrater) getNewMigrations() []migrationModel {
 }
 
 //
-func (m *migrater) newMigrationModel() migrationModel{
+func (m *migrater) newMigrationModel() migrationModel {
 	return migrationModel{tableName: m.Configurator.TableName}
 }
 
@@ -243,11 +253,10 @@ func (m *migrater) newMigrationModel() migrationModel{
 
 // check or create table to register successful migrations
 func (m *migrater) checkMigrationTable() {
-
 	model := m.newMigrationModel()
 
 	if !m.db.HasTable(&model) {
-		m.Log.Infof("Init table: %v", model.TableName())
+		m.di.GetLogger().Infof("Init table: %v", model.TableName())
 		if err := m.db.AutoMigrate(&model).Error; err != nil {
 			panic(err)
 		}
@@ -274,7 +283,6 @@ func checkFileExists(dir string, name string) error {
 
 //
 func getTemplate() (*template.Template, error) {
-
 	_, filename, _, ok := runtime.Caller(1)
 	if !ok {
 		return nil, fmt.Errorf("Template caller")
